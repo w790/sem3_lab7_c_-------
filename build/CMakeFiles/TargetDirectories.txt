@@ -1,0 +1,5 @@
+/Users/pasha/CLionProjects/sem3_lab7_c--/build/CMakeFiles/bayan.dir
+/Users/pasha/CLionProjects/sem3_lab7_c--/build/CMakeFiles/package.dir
+/Users/pasha/CLionProjects/sem3_lab7_c--/build/CMakeFiles/package_source.dir
+/Users/pasha/CLionProjects/sem3_lab7_c--/build/CMakeFiles/edit_cache.dir
+/Users/pasha/CLionProjects/sem3_lab7_c--/build/CMakeFiles/rebuild_cache.dir

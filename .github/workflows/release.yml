@@ -1,0 +1,112 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bump_version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.bump.outputs.new_tag }}
+      major: ${{ steps.bump.outputs.major }}
+      minor: ${{ steps.bump.outputs.minor }}
+      patch: ${{ steps.bump_version.outputs.patch }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version
+        id: bump
+        shell: bash
+        run: |
+          git fetch --tags --quiet
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+          last_tag=${last_tag#v}
+          IFS='.' read -r major minor patch <<< "$last_tag"
+
+          while true; do
+            patch=$((patch+1))
+            new_tag="$major.$minor.$patch"
+
+            if git rev-parse -q --verify "refs/tags/$new_tag" >/dev/null 2>&1; then
+              continue
+            fi
+            if git ls-remote --tags origin "refs/tags/$new_tag" | grep -q "$new_tag"; then
+              continue
+            fi
+
+            git tag "$new_tag"
+            git push origin "refs/tags/$new_tag"
+            echo "new_tag=$new_tag" >> "$GITHUB_OUTPUT"
+            echo "major=$major" >> "$GITHUB_OUTPUT"
+            echo "minor=$minor" >> "$GITHUB_OUTPUT"
+            echo "patch=$patch" >> "$GITHUB_OUTPUT"
+            break
+          done
+
+  build_and_package:
+    needs: bump_version
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Clean build directory
+        shell: bash
+        run: |
+          rm -rf build
+          mkdir build
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config ninja-build
+
+      - name: Configure and Build
+        shell: bash
+        env:
+          PROJECT_VERSION_MAJOR: ${{ needs.bump_version.outputs.major }}
+          PROJECT_VERSION_MINOR: ${{ needs.bump_version.outputs.minor }}
+          PROJECT_VERSION_PATCH: ${{ needs.bump_version.outputs.patch }}
+        run: |
+          cmake -G "Ninja" -S . -B build \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
+            -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
+            -DCPACK_DEBIAN_PACKAGE_MAINTAINER="GitHub Actions <github-actions@example.com>"
+          cmake --build build --parallel 2
+
+      - name: Create package directory
+        shell: bash
+        run: |
+          mkdir -p ${{ github.workspace }}/build/package
+
+      - name: Install to package directory
+        shell: bash
+        run: |
+          cmake --install build --prefix ${{ github.workspace }}/build/package
+
+      - name: Package
+        shell: bash
+        run: |
+          cd build
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            cpack -G ZIP
+          else
+            cpack -G DEB
+          fi
+
+      - name: Upload
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.bump_version.outputs.new_tag }}
+          files: build/*.deb build/*.zip
