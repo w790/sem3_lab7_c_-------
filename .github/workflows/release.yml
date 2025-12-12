@@ -53,7 +53,7 @@ jobs:
   build_and_package:
     needs: bump_version
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25  # Увеличил время для Windows
+    timeout-minutes: 30  # Увеличил время
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -76,9 +76,24 @@ jobs:
         if: runner.os == 'Windows'
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: '2024.11.12'
-          vcpkgTriplet: 'x64-windows-static'
-          vcpkgArguments: 'boost-program-options boost-filesystem'
+          vcpkgGitCommitId: 'a1c9f8d1b8d6c8471f5c7c4e6d6fc5d2b1e3a4b5'  # Используем конкретный коммит
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          vcpkgJsonGlob: '**/vcpkg.json'
+
+      - name: Create vcpkg.json (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cat > vcpkg.json << EOF
+          {
+            "name": "bayan",
+            "version": "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}",
+            "dependencies": [
+              "boost-program-options",
+              "boost-filesystem"
+            ]
+          }
+          EOF
 
       - name: Configure and Build
         shell: bash

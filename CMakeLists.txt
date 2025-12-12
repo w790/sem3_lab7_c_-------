@@ -16,23 +16,24 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Ищем Boost библиотеки
-find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem)
-
-if(NOT Boost_FOUND)
-    # Если не нашли в системе, пробуем установить
-    message(WARNING "Boost not found, trying to find in alternative locations")
-
-    # Для Mac с Homebrew
-    if(APPLE)
-        set(BOOST_PATH "/opt/homebrew")
-        if(EXISTS "${BOOST_PATH}")
-            set(Boost_INCLUDE_DIR "${BOOST_PATH}/include")
-            set(Boost_LIBRARY_DIR "${BOOST_PATH}/lib")
-            find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem
-                    HINTS "${BOOST_PATH}")
-        endif()
+# Настройка поиска Boost для разных платформ
+if(APPLE)
+    # Для Mac с Homebrew - ищем статические библиотеки
+    set(BOOST_PATH "/opt/homebrew")
+    if(EXISTS "${BOOST_PATH}")
+        set(Boost_USE_STATIC_LIBS ON)
+        find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem
+                HINTS "${BOOST_PATH}"
+                PATHS "${BOOST_PATH}"
+                PATH_SUFFIXES lib/cmake)
+    else()
+        # Пробуем найти в системе
+        find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem)
     endif()
+else()
+    # Для Linux и Windows - используем динамические библиотеки
+    set(Boost_USE_STATIC_LIBS OFF)
+    find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem)
 endif()
 
 # Основная программа
@@ -45,24 +46,16 @@ add_executable(bayan
 # Include директории
 target_include_directories(bayan PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${Boost_INCLUDE_DIRS}
 )
 
-if(Boost_FOUND)
-    target_include_directories(bayan PRIVATE ${Boost_INCLUDE_DIRS})
-    target_link_libraries(bayan ${Boost_LIBRARIES})
-else()
-    # Fallback для Mac
-    if(APPLE)
-        set(BOOST_PATH "/opt/homebrew")
-        target_include_directories(bayan PRIVATE "${BOOST_PATH}/include")
-        target_link_libraries(bayan
-                "${BOOST_PATH}/lib/libboost_program_options.a"
-                "${BOOST_PATH}/lib/libboost_filesystem.a"
-        )
-    else()
-        message(FATAL_ERROR "Boost libraries not found!")
-    endif()
-endif()
+# Линковка Boost
+target_link_libraries(bayan ${Boost_LIBRARIES})
+
+# Для отладки - выводим информацию о найденных библиотеках
+message(STATUS "Boost found: ${Boost_FOUND}")
+message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
+message(STATUS "Boost include dirs: ${Boost_INCLUDE_DIRS}")
 
 # Добавляем CPack
 include(CPack)
@@ -73,3 +66,12 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Duplicate File Finder")
 set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+
+# Настройки для разных платформ
+if(WIN32)
+    set(CPACK_GENERATOR "ZIP")
+elseif(APPLE)
+    set(CPACK_GENERATOR "TGZ")
+else()
+    set(CPACK_GENERATOR "DEB")
+endif()
