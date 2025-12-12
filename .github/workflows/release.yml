@@ -70,7 +70,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config ninja-build libboost-program-options-dev libboost-filesystem-dev
+          sudo apt-get install -y build-essential cmake pkg-config ninja-build libboost-program-options-dev libboost-filesystem-dev libboost-crc-dev
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
