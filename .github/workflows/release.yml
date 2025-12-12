@@ -76,32 +76,68 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # Устанавливаем необходимые инструменты
-          choco install cmake ninja 7zip -y
+          # Устанавливаем инструменты
+          choco install cmake ninja -y
           
-          # Скачиваем архив Boost (ZIP версия)
-          Write-Host "Downloading Boost..."
-          $url = "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.zip"
-          Invoke-WebRequest -Uri $url -OutFile "boost_1_83_0.zip"
+          # Скачиваем Boost с официального сайта (используем другой URL)
+          Write-Host "Downloading Boost from official site..."
+          $url = "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.7z"
           
-          # Распаковываем
+          # Пробуем несколько источников
+          try {
+              Invoke-WebRequest -Uri $url -OutFile "boost_1_83_0.7z"
+              Write-Host "Successfully downloaded from primary source"
+          } catch {
+              Write-Host "Trying alternative source..."
+              $url = "https://archives.boost.io/release/1.83.0/source/boost_1_83_0.7z"
+              Invoke-WebRequest -Uri $url -OutFile "boost_1_83_0.7z"
+          }
+          
+          # Создаем директорию
+          New-Item -ItemType Directory -Force -Path "C:\boost"
+          
+          # Распаковываем с помощью встроенного PowerShell
           Write-Host "Extracting Boost..."
-          7z x boost_1_83_0.zip -oC:\boost_source
           
-          # Собираем Boost (только необходимые библиотеки)
-          Write-Host "Building Boost..."
-          cd C:\boost_source\boost_1_83_0
+          # Если есть 7zip, используем его
+          if (Test-Path "C:\ProgramData\chocolatey\bin\7z.exe") {
+              & "C:\ProgramData\chocolatey\bin\7z.exe" x boost_1_83_0.7z -oC:\boost
+          } else {
+              # Иначе используем Expand-Archive (если это .zip)
+              Expand-Archive -Path "boost_1_83_0.7z" -DestinationPath "C:\boost" -Force
+          }
           
-          # Запускаем bootstrap
-          .\bootstrap.bat
+          # Проверяем, что файлы распаковались
+          if (Test-Path "C:\boost\boost_1_83_0\boost") {
+              Write-Host "Boost extracted successfully"
           
-          # Собираем только program_options и filesystem
-          .\b2 --with-program_options --with-filesystem toolset=msvc-14.3 address-model=64 variant=release link=static runtime-link=shared threading=multi stage
+              # Устанавливаем переменные окружения
+              echo "BOOST_ROOT=C:\boost\boost_1_83_0" >> $env:GITHUB_ENV
+              echo "BOOST_INCLUDEDIR=C:\boost\boost_1_83_0" >> $env:GITHUB_ENV
           
-          # Устанавливаем переменные окружения
-          echo "BOOST_ROOT=C:\boost_source\boost_1_83_0" >> $env:GITHUB_ENV
-          echo "BOOST_LIBRARYDIR=C:\boost_source\boost_1_83_0\stage\lib" >> $env:GITHUB_ENV
-          echo "BOOST_INCLUDEDIR=C:\boost_source\boost_1_83_0" >> $env:GITHUB_ENV
+              # Для Windows нужно собрать библиотеки
+              Write-Host "Building Boost libraries..."
+              cd C:\boost\boost_1_83_0
+          
+              # Запускаем bootstrap
+              .\bootstrap.bat
+          
+              # Собираем только нужные библиотеки
+              .\b2 --with-program_options --with-filesystem toolset=msvc address-model=64 variant=release link=static runtime-link=shared stage
+          
+              echo "BOOST_LIBRARYDIR=C:\boost\boost_1_83_0\stage\lib" >> $env:GITHUB_ENV
+          } else {
+              Write-Host "Boost extraction failed, using vcpkg fallback"
+          
+              # Fallback: используем vcpkg
+              git clone https://github.com/microsoft/vcpkg.git
+              cd vcpkg
+              .\bootstrap-vcpkg.bat
+              .\vcpkg install boost-program-options:x64-windows boost-filesystem:x64-windows
+          
+              echo "VCPKG_ROOT=${{ github.workspace }}\vcpkg" >> $env:GITHUB_ENV
+              echo "CMAKE_TOOLCHAIN_FILE=${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" >> $env:GITHUB_ENV
+          }
 
       - name: Configure and Build
         shell: bash
