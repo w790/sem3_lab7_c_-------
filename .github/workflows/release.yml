@@ -53,7 +53,7 @@ jobs:
   build_and_package:
     needs: bump_version
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30  # Увеличил время
+    timeout-minutes: 25
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -72,28 +72,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake pkg-config ninja-build libboost-program-options-dev libboost-filesystem-dev
 
-      - name: Setup vcpkg (Windows)
+      - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: 'a1c9f8d1b8d6c8471f5c7c4e6d6fc5d2b1e3a4b5'  # Используем конкретный коммит
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          vcpkgJsonGlob: '**/vcpkg.json'
-
-      - name: Create vcpkg.json (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         run: |
-          cat > vcpkg.json << EOF
-          {
-            "name": "bayan",
-            "version": "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}",
-            "dependencies": [
-              "boost-program-options",
-              "boost-filesystem"
-            ]
-          }
-          EOF
+          # Устанавливаем необходимые инструменты
+          choco install cmake ninja -y
+          
+          # Скачиваем Boost бинарники
+          Write-Host "Downloading Boost..."
+          $url = "https://sourceforge.net/projects/boost/files/boost-binaries/1.83.0/boost_1_83_0-msvc-14.3-64.exe/download"
+          Invoke-WebRequest -Uri $url -OutFile "boost_installer.exe"
+          
+          # Устанавливаем Boost
+          Write-Host "Installing Boost..."
+          Start-Process -FilePath "boost_installer.exe" -ArgumentList "/VERYSILENT", "/DIR=C:\boost" -Wait
+          
+          # Удаляем установщик
+          Remove-Item "boost_installer.exe"
+          
+          # Устанавливаем переменные окружения
+          echo "BOOST_ROOT=C:\boost" >> $env:GITHUB_ENV
+          echo "BOOST_LIBRARYDIR=C:\boost\lib64-msvc-14.3" >> $env:GITHUB_ENV
+          echo "BOOST_INCLUDEDIR=C:\boost\include\boost-1_83" >> $env:GITHUB_ENV
 
       - name: Configure and Build
         shell: bash
@@ -103,10 +104,11 @@ jobs:
           PROJECT_VERSION_PATCH: ${{ needs.bump_version.outputs.patch }}
         run: |
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            # Для Windows с vcpkg
+            # Для Windows - указываем путь к Boost
             cmake -G "Ninja" -S . -B build \
               -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
-              -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+              -DBOOST_ROOT="${{ env.BOOST_ROOT }}" \
+              -DBOOST_LIBRARYDIR="${{ env.BOOST_LIBRARYDIR }}" \
               -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
               -DCPACK_DEBIAN_PACKAGE_MAINTAINER="GitHub Actions <github-actions@example.com>"
           else
