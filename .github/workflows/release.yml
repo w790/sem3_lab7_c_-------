@@ -14,7 +14,7 @@ jobs:
       new_tag: ${{ steps.bump.outputs.new_tag }}
       major: ${{ steps.bump.outputs.major }}
       minor: ${{ steps.bump.outputs.minor }}
-      patch: ${{ steps.bump_version.outputs.patch }}
+      patch: ${{ steps.bump.outputs.patch }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -70,7 +70,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config ninja-build
+          sudo apt-get install -y build-essential cmake pkg-config ninja-build libboost-program-options-dev libboost-filesystem-dev
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Устанавливаем Mingw и Boost для Windows
+          choco install mingw cmake ninja -y
+          # Скачиваем и устанавливаем Boost вручную
+          curl -L -o boost_1_83_0.zip https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.zip
+          7z x boost_1_83_0.zip
+          cd boost_1_83_0
+          .\bootstrap.bat gcc
+          .\b2 install --prefix=C:/boost
 
       - name: Configure and Build
         shell: bash
@@ -79,10 +91,25 @@ jobs:
           PROJECT_VERSION_MINOR: ${{ needs.bump_version.outputs.minor }}
           PROJECT_VERSION_PATCH: ${{ needs.bump_version.outputs.patch }}
         run: |
-          cmake -G "Ninja" -S . -B build \
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
-            -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
-            -DCPACK_DEBIAN_PACKAGE_MAINTAINER="GitHub Actions <github-actions@example.com>"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            # Для Windows указываем путь к Boost
+            export BOOST_ROOT="C:/boost"
+            export BOOST_LIBRARYDIR="C:/boost/lib"
+            export BOOST_INCLUDEDIR="C:/boost/include"
+          
+            cmake -G "Ninja" -S . -B build \
+              -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
+              -DCMAKE_PREFIX_PATH="C:/boost" \
+              -DBOOST_ROOT="C:/boost" \
+              -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
+              -DCPACK_DEBIAN_PACKAGE_MAINTAINER="GitHub Actions <github-actions@example.com>"
+          else
+            cmake -G "Ninja" -S . -B build \
+              -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
+              -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
+              -DCPACK_DEBIAN_PACKAGE_MAINTAINER="GitHub Actions <github-actions@example.com>"
+          fi
+          
           cmake --build build --parallel 2
 
       - name: Create package directory
@@ -99,7 +126,7 @@ jobs:
         shell: bash
         run: |
           cd build
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
             cpack -G ZIP
           else
             cpack -G DEB

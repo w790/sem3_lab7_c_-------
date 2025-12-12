@@ -16,8 +16,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Для Mac с Homebrew
-set(BOOST_PATH "/opt/homebrew")
+# Ищем Boost библиотеки
+find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem)
 
 # Основная программа
 add_executable(bayan
@@ -29,20 +29,13 @@ add_executable(bayan
 # Include директории
 target_include_directories(bayan PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${BOOST_PATH}/include
+        ${Boost_INCLUDE_DIRS}
 )
 
-# Линкуем ТОЛЬКО нужные библиотеки (без system)
+# Линкуем Boost библиотеки
 target_link_libraries(bayan
-        "${BOOST_PATH}/lib/libboost_program_options.a"
-        "${BOOST_PATH}/lib/libboost_filesystem.a"
+        ${Boost_LIBRARIES}
 )
-
-# Или динамически
-# target_link_libraries(bayan
-#     "${BOOST_PATH}/lib/libboost_program_options.dylib"
-#     "${BOOST_PATH}/lib/libboost_filesystem.dylib"
-# )
 
 # Добавляем CPack
 include(CPack)

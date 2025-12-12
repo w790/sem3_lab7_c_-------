@@ -26,6 +26,13 @@ BOOST_SYSTEM_LIB:FILEPATH=BOOST_SYSTEM_LIB-NOTFOUND
 //The directory containing a CMake configuration file for Boost.
 Boost_DIR:PATH=/opt/homebrew/lib/cmake/Boost-1.89.0
 
+Boost_FILESYSTEM_LIBRARY_RELEASE:STRING=/opt/homebrew/lib/libboost_filesystem.dylib
+
+//Path to a file.
+Boost_INCLUDE_DIR:PATH=/opt/homebrew/include
+
+Boost_PROGRAM_OPTIONS_LIBRARY_RELEASE:STRING=/opt/homebrew/lib/libboost_program_options.dylib
+
 //Path to a program.
 CMAKE_ADDR2LINE:FILEPATH=CMAKE_ADDR2LINE-NOTFOUND
 
@@ -297,6 +304,9 @@ boost_filesystem_DIR:PATH=/opt/homebrew/lib/cmake/boost_filesystem-1.89.0
 //The directory containing a CMake configuration file for boost_headers.
 boost_headers_DIR:PATH=/opt/homebrew/lib/cmake/boost_headers-1.89.0
 
+//The directory containing a CMake configuration file for boost_program_options.
+boost_program_options_DIR:PATH=/opt/homebrew/lib/cmake/boost_program_options-1.89.0
+
 //The directory containing a CMake configuration file for boost_system.
 boost_system_DIR:PATH=boost_system_DIR-NOTFOUND
 
@@ -314,6 +324,8 @@ sem3_lab7_c--_SOURCE_DIR:STATIC=/Users/pasha/CLionProjects/sem3_lab7_c--
 # INTERNAL cache entries
 ########################
 
+//ADVANCED property for variable: Boost_DIR
+Boost_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_ADDR2LINE
 CMAKE_ADDR2LINE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_AR
@@ -491,10 +503,14 @@ CPACK_SOURCE_TXZ-ADVANCED:INTERNAL=1
 CPACK_SOURCE_TZ-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CPACK_SOURCE_ZIP
 CPACK_SOURCE_ZIP-ADVANCED:INTERNAL=1
+//Details about finding Boost
+FIND_PACKAGE_MESSAGE_DETAILS_Boost:INTERNAL=[/opt/homebrew/lib/cmake/Boost-1.89.0/BoostConfig.cmake][found components: program_options filesystem ][v1.89.0(1.71.0)]
 //ADVANCED property for variable: boost_atomic_DIR
 boost_atomic_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: boost_filesystem_DIR
 boost_filesystem_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: boost_headers_DIR
 boost_headers_DIR-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: boost_program_options_DIR
+boost_program_options_DIR-ADVANCED:INTERNAL=1
 

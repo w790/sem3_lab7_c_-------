@@ -127,8 +127,9 @@ bayan: CMakeFiles/bayan.dir/main.cpp.o
 bayan: CMakeFiles/bayan.dir/Hash.cpp.o
 bayan: CMakeFiles/bayan.dir/ScannerDirectory.cpp.o
 bayan: CMakeFiles/bayan.dir/build.make
-bayan: /opt/homebrew/lib/libboost_program_options.a
-bayan: /opt/homebrew/lib/libboost_filesystem.a
+bayan: /opt/homebrew/lib/libboost_program_options.dylib
+bayan: /opt/homebrew/lib/libboost_filesystem.dylib
+bayan: /opt/homebrew/lib/libboost_atomic.dylib
 bayan: CMakeFiles/bayan.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/pasha/CLionProjects/sem3_lab7_c--/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable bayan"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/bayan.dir/link.txt --verbose=$(VERBOSE)
