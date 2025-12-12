@@ -150,22 +150,21 @@ jobs:
           PROJECT_VERSION_PATCH: ${{ needs.bump_version.outputs.patch }}
         run: |
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            # Для Windows - указываем путь к Boost
-            cmake -G "Ninja" -S . -B build \
+            # Для Windows используем MSVC генератор
+            cmake -G "Visual Studio 17 2022" -A x64 -S . -B build \
               -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
-              -DBOOST_ROOT="${{ env.BOOST_ROOT }}" \
-              -DBOOST_LIBRARYDIR="${{ env.BOOST_LIBRARYDIR }}" \
-              -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
-              -DCPACK_DEBIAN_PACKAGE_MAINTAINER="GitHub Actions <github-actions@example.com>"
+              -DCMAKE_TOOLCHAIN_FILE="${{ env.CMAKE_TOOLCHAIN_FILE }}" \
+              -DCPACK_PACKAGE_CONTACT="github-actions@example.com"
+          
+            cmake --build build --config Release --parallel 2
           else
             # Для Linux
             cmake -G "Ninja" -S . -B build \
               -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
-              -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
-              -DCPACK_DEBIAN_PACKAGE_MAINTAINER="GitHub Actions <github-actions@example.com>"
-          fi
+              -DCPACK_PACKAGE_CONTACT="github-actions@example.com"
           
-          cmake --build build --parallel 2
+            cmake --build build --parallel 2
+          fi
 
       - name: Create package directory
         shell: bash
