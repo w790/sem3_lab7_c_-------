@@ -77,24 +77,31 @@ jobs:
         shell: pwsh
         run: |
           # Устанавливаем необходимые инструменты
-          choco install cmake ninja -y
+          choco install cmake ninja 7zip -y
           
-          # Скачиваем Boost бинарники
+          # Скачиваем архив Boost (ZIP версия)
           Write-Host "Downloading Boost..."
-          $url = "https://sourceforge.net/projects/boost/files/boost-binaries/1.83.0/boost_1_83_0-msvc-14.3-64.exe/download"
-          Invoke-WebRequest -Uri $url -OutFile "boost_installer.exe"
+          $url = "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.zip"
+          Invoke-WebRequest -Uri $url -OutFile "boost_1_83_0.zip"
           
-          # Устанавливаем Boost
-          Write-Host "Installing Boost..."
-          Start-Process -FilePath "boost_installer.exe" -ArgumentList "/VERYSILENT", "/DIR=C:\boost" -Wait
+          # Распаковываем
+          Write-Host "Extracting Boost..."
+          7z x boost_1_83_0.zip -oC:\boost_source
           
-          # Удаляем установщик
-          Remove-Item "boost_installer.exe"
+          # Собираем Boost (только необходимые библиотеки)
+          Write-Host "Building Boost..."
+          cd C:\boost_source\boost_1_83_0
+          
+          # Запускаем bootstrap
+          .\bootstrap.bat
+          
+          # Собираем только program_options и filesystem
+          .\b2 --with-program_options --with-filesystem toolset=msvc-14.3 address-model=64 variant=release link=static runtime-link=shared threading=multi stage
           
           # Устанавливаем переменные окружения
-          echo "BOOST_ROOT=C:\boost" >> $env:GITHUB_ENV
-          echo "BOOST_LIBRARYDIR=C:\boost\lib64-msvc-14.3" >> $env:GITHUB_ENV
-          echo "BOOST_INCLUDEDIR=C:\boost\include\boost-1_83" >> $env:GITHUB_ENV
+          echo "BOOST_ROOT=C:\boost_source\boost_1_83_0" >> $env:GITHUB_ENV
+          echo "BOOST_LIBRARYDIR=C:\boost_source\boost_1_83_0\stage\lib" >> $env:GITHUB_ENV
+          echo "BOOST_INCLUDEDIR=C:\boost_source\boost_1_83_0" >> $env:GITHUB_ENV
 
       - name: Configure and Build
         shell: bash
