@@ -22,18 +22,18 @@ if(APPLE)
     set(BOOST_PATH "/opt/homebrew")
     if(EXISTS "${BOOST_PATH}")
         set(Boost_USE_STATIC_LIBS ON)
-        find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem
+        find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc
                 HINTS "${BOOST_PATH}"
                 PATHS "${BOOST_PATH}"
                 PATH_SUFFIXES lib/cmake)
     else()
         # Пробуем найти в системе
-        find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem)
+        find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc)
     endif()
 else()
     # Для Linux и Windows - используем динамические библиотеки
     set(Boost_USE_STATIC_LIBS OFF)
-    find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem)
+    find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc)
 endif()
 
 # Основная программа

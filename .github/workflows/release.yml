@@ -123,7 +123,7 @@ jobs:
               .\bootstrap.bat
           
               # Собираем только нужные библиотеки
-              .\b2 --with-program_options --with-filesystem toolset=msvc address-model=64 variant=release link=static runtime-link=shared stage
+              .\b2 --with-program_options --with-filesystem --with-crc toolset=msvc address-model=64 variant=release link=static runtime-link=shared stage
           
               echo "BOOST_LIBRARYDIR=C:\boost\boost_1_83_0\stage\lib" >> $env:GITHUB_ENV
           } else {
@@ -133,7 +133,7 @@ jobs:
               git clone https://github.com/microsoft/vcpkg.git
               cd vcpkg
               .\bootstrap-vcpkg.bat
-              .\vcpkg install boost-program-options:x64-windows boost-filesystem:x64-windows
+              .\vcpkg install boost-program-options:x64-windows boost-filesystem:x64-windows boost-crc:x64-windows
           
               echo "VCPKG_ROOT=${{ github.workspace }}\vcpkg" >> $env:GITHUB_ENV
               echo "CMAKE_TOOLCHAIN_FILE=${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" >> $env:GITHUB_ENV
