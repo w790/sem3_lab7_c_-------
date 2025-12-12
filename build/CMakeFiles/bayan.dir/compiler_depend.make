@@ -836,7 +836,6 @@ CMakeFiles/bayan.dir/Hash.cpp.o: /Users/pasha/CLionProjects/sem3_lab7_c--/Hash.c
   /opt/homebrew/include/boost/config.hpp \
   /opt/homebrew/include/boost/config/abi_prefix.hpp \
   /opt/homebrew/include/boost/config/abi_suffix.hpp \
-  /opt/homebrew/include/boost/config/auto_link.hpp \
   /opt/homebrew/include/boost/config/compiler/clang.hpp \
   /opt/homebrew/include/boost/config/compiler/clang_version.hpp \
   /opt/homebrew/include/boost/config/detail/cxx_composite.hpp \
@@ -1775,7 +1774,6 @@ CMakeFiles/bayan.dir/ScannerDirectory.cpp.o: /Users/pasha/CLionProjects/sem3_lab
   /opt/homebrew/include/boost/config.hpp \
   /opt/homebrew/include/boost/config/abi_prefix.hpp \
   /opt/homebrew/include/boost/config/abi_suffix.hpp \
-  /opt/homebrew/include/boost/config/auto_link.hpp \
   /opt/homebrew/include/boost/config/compiler/clang.hpp \
   /opt/homebrew/include/boost/config/compiler/clang_version.hpp \
   /opt/homebrew/include/boost/config/detail/cxx_composite.hpp \
@@ -2728,7 +2726,6 @@ CMakeFiles/bayan.dir/main.cpp.o: /Users/pasha/CLionProjects/sem3_lab7_c--/main.c
   /opt/homebrew/include/boost/config.hpp \
   /opt/homebrew/include/boost/config/abi_prefix.hpp \
   /opt/homebrew/include/boost/config/abi_suffix.hpp \
-  /opt/homebrew/include/boost/config/auto_link.hpp \
   /opt/homebrew/include/boost/config/compiler/clang.hpp \
   /opt/homebrew/include/boost/config/compiler/clang_version.hpp \
   /opt/homebrew/include/boost/config/detail/cxx_composite.hpp \
@@ -3209,8 +3206,6 @@ CMakeFiles/bayan.dir/main.cpp.o: /Users/pasha/CLionProjects/sem3_lab7_c--/main.c
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/iostream:
 
 /opt/homebrew/include/boost/config/compiler/clang.hpp:
-
-/opt/homebrew/include/boost/config/auto_link.hpp:
 
 /opt/homebrew/include/boost/config/abi_suffix.hpp:
 

@@ -53,7 +53,7 @@ jobs:
   build_and_package:
     needs: bump_version
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 25  # Увеличил время для Windows
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -72,17 +72,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake pkg-config ninja-build libboost-program-options-dev libboost-filesystem-dev
 
-      - name: Install dependencies (Windows)
+      - name: Setup vcpkg (Windows)
         if: runner.os == 'Windows'
-        run: |
-          # Устанавливаем Mingw и Boost для Windows
-          choco install mingw cmake ninja -y
-          # Скачиваем и устанавливаем Boost вручную
-          curl -L -o boost_1_83_0.zip https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.zip
-          7z x boost_1_83_0.zip
-          cd boost_1_83_0
-          .\bootstrap.bat gcc
-          .\b2 install --prefix=C:/boost
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '2024.11.12'
+          vcpkgTriplet: 'x64-windows-static'
+          vcpkgArguments: 'boost-program-options boost-filesystem'
 
       - name: Configure and Build
         shell: bash
@@ -92,18 +88,14 @@ jobs:
           PROJECT_VERSION_PATCH: ${{ needs.bump_version.outputs.patch }}
         run: |
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            # Для Windows указываем путь к Boost
-            export BOOST_ROOT="C:/boost"
-            export BOOST_LIBRARYDIR="C:/boost/lib"
-            export BOOST_INCLUDEDIR="C:/boost/include"
-          
+            # Для Windows с vcpkg
             cmake -G "Ninja" -S . -B build \
               -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
-              -DCMAKE_PREFIX_PATH="C:/boost" \
-              -DBOOST_ROOT="C:/boost" \
+              -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
               -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
               -DCPACK_DEBIAN_PACKAGE_MAINTAINER="GitHub Actions <github-actions@example.com>"
           else
+            # Для Linux
             cmake -G "Ninja" -S . -B build \
               -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/package \
               -DCPACK_PACKAGE_CONTACT="github-actions@example.com" \
