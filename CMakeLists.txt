@@ -16,24 +16,52 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Настройка поиска Boost для разных платформ
+# Отключаем устаревший поиск Boost (CMP0167)
+cmake_policy(SET CMP0167 NEW)
+
+# Разные настройки для разных платформ
 if(APPLE)
-    # Для Mac с Homebrew - ищем статические библиотеки
+    # Для Mac с Homebrew
     set(BOOST_PATH "/opt/homebrew")
     if(EXISTS "${BOOST_PATH}")
         set(Boost_USE_STATIC_LIBS ON)
-        find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc
-                HINTS "${BOOST_PATH}"
-                PATHS "${BOOST_PATH}"
-                PATH_SUFFIXES lib/cmake)
-    else()
-        # Пробуем найти в системе
-        find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc)
+        set(Boost_NO_SYSTEM_PATHS ON)
+        set(BOOST_ROOT "${BOOST_PATH}")
+        set(BOOST_INCLUDEDIR "${BOOST_PATH}/include")
+        set(BOOST_LIBRARYDIR "${BOOST_PATH}/lib")
     endif()
-else()
-    # Для Linux и Windows - используем динамические библиотеки
-    set(Boost_USE_STATIC_LIBS OFF)
+
     find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc)
+
+elseif(WIN32)
+    # Для Windows
+    set(Boost_USE_STATIC_LIBS OFF)
+
+    # Если есть переменные окружения от vcpkg
+    if(DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
+        set(CMAKE_TOOLCHAIN_FILE $ENV{CMAKE_TOOLCHAIN_FILE})
+    endif()
+
+    find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc)
+
+else()
+    # Для Linux
+    set(Boost_USE_STATIC_LIBS OFF)
+
+    # На Linux используем MODULE mode для FindBoost
+    find_package(Boost 1.71.0 REQUIRED
+            COMPONENTS program_options filesystem
+            OPTIONAL_COMPONENTS crc  # crc может быть не найден как библиотека
+    )
+
+    # Проверяем наличие заголовка crc
+    find_path(BOOST_CRC_INCLUDE_DIR boost/crc.hpp
+            PATHS /usr/include /usr/local/include
+    )
+
+    if(NOT BOOST_CRC_INCLUDE_DIR)
+        message(WARNING "boost/crc.hpp not found. The crc library may not work.")
+    endif()
 endif()
 
 # Основная программа
@@ -50,10 +78,20 @@ target_include_directories(bayan PRIVATE
 )
 
 # Линковка Boost
-target_link_libraries(bayan ${Boost_LIBRARIES})
+if(Boost_FOUND)
+    target_link_libraries(bayan ${Boost_LIBRARIES})
 
-# Для отладки - выводим информацию о найденных библиотеках
+    # Для Linux, если crc не найден как библиотека, линкуем только заголовочную версию
+    if(NOT TARGET Boost::crc AND NOT "crc" IN_LIST Boost_FIND_COMPONENTS)
+        message(STATUS "Boost::crc library not found, using header-only version")
+    endif()
+else()
+    message(FATAL_ERROR "Boost libraries not found!")
+endif()
+
+# Для отладки
 message(STATUS "Boost found: ${Boost_FOUND}")
+message(STATUS "Boost components: ${Boost_FIND_COMPONENTS}")
 message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
 message(STATUS "Boost include dirs: ${Boost_INCLUDE_DIRS}")
 

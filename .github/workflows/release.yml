@@ -70,8 +70,10 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          # Установите единый пакет заголовков вместо отдельных компонентов
-          sudo apt-get install -y build-essential cmake pkg-config ninja-build libboost-dev
+          sudo apt-get install -y build-essential cmake pkg-config ninja-build \
+            libboost-program-options-dev libboost-filesystem-dev libboost-system-dev
+          # libboost-crc-dev не существует в Ubuntu, но заголовки есть в libboost-dev
+          sudo apt-get install -y libboost-dev
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
