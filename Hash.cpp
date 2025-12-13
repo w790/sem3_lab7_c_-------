@@ -1,122 +1,165 @@
 #include "Hash.h"
 #include <boost/crc.hpp>
 #include <sstream>
-#include <fstream>
 #include <iomanip>
+#include <iostream>
+#include <memory>
+#include <algorithm>
 
 Hash::Hash(size_t block_size) : block_size(block_size) {}
 
-std::string Hash::hash_block(const std::string &str_lenght_s){
-    // TODO: Вычислить CRC32 для строки str_lenght_s
-    // Использовать boost::crc_32_type
-    // Результат преобразовать в строку в hex формате
+// Конструктор FileHandle
+Hash::FileHandle::FileHandle(const boost::filesystem::path& file_path)
+    : path(file_path), size(0) {
+    try {
+        size = boost::filesystem::file_size(file_path);
+        stream = std::make_unique<std::ifstream>(file_path.string(), std::ios::binary);
+        if (!stream->is_open()) {
+            stream.reset();
+        }
+    } catch (const std::exception& e) {
+        // Молчим об ошибках, они обрабатываются в is_valid()
+        stream.reset();
+    }
+}
 
-    //создание объекта boost::crc_32_type
-    boost::crc_32_type result_crc;
-    //обработка байтов строки str_lenght_s
-    result_crc.process_bytes(str_lenght_s.data(),str_lenght_s.length());
-    //получить checksum()
-    uint32_t checksum = result_crc.checksum();
-    //преобразование в hex строку
+std::string Hash::hash_crc32(const std::string &data) {
+    boost::crc_32_type crc_calculator;
+    crc_calculator.process_bytes(data.data(), data.size());
+    uint32_t checksum = crc_calculator.checksum();
+
     std::stringstream ss;
     ss << std::hex << std::setw(8) << std::setfill('0') << checksum;
-
     return ss.str();
 }
 
-std::unordered_map<uintmax_t, std::string> Hash::parse_reference_block_hash(boost::filesystem::path& file_path){
-    std::unordered_map<uintmax_t, std::string> result;
-    // нам надо открыть файл в бинарном режими и начать по нему проходить
-    std::ifstream ifs(file_path.string(), std::ios::binary);
-
-    if (!ifs.is_open()) {
-        return result;
+std::string Hash::get_block_hash(FileHandle& handle, size_t block_index) {
+    // Проверяем кэш
+    auto it = handle.block_cache.find(block_index);
+    if (it != handle.block_cache.end()) {
+        return it->second;
     }
 
-
-    uintmax_t block_index = 0;
-
-    while (!ifs.eof()) {
-        std::vector<char> buffer(block_size);
-        ifs.read(buffer.data(), block_size);
-        std::streamsize bytes_read = ifs.gcount();
-
-        if (bytes_read == 0){
-            break;
-        }
-
-        std::string block_data(buffer.begin(), buffer.begin() + bytes_read);
-
-        result[block_index] = hash_block(block_data);
-        block_index++;
+    // Проверяем, что файл открыт
+    if (!handle.is_valid()) {
+        return "";
     }
 
-    ifs.close();
-    return result;
+    // Вычисляем позицию и размер для чтения
+    std::ifstream& file = *handle.stream;
+    file.clear();
+    file.seekg(block_index * block_size, std::ios::beg);
+
+    // Определяем, сколько байт нужно прочитать
+    uintmax_t bytes_to_read = block_size;
+    uintmax_t file_pos = block_index * block_size;
+    if (file_pos + block_size > handle.size) {
+        bytes_to_read = handle.size - file_pos;
+    }
+
+    if (bytes_to_read == 0) {
+        return "";
+    }
+
+    // Читаем данные
+    std::vector<char> buffer(bytes_to_read);
+    file.read(buffer.data(), bytes_to_read);
+    std::streamsize bytes_read = file.gcount();
+
+    if (bytes_read == 0) {
+        return "";
+    }
+
+    // Создаём полный блок размера S с нулями
+    std::vector<char> full_block(block_size, '\0');
+    std::copy(buffer.begin(), buffer.begin() + bytes_read, full_block.begin());
+
+    // Вычисляем хеш от полного блока
+    std::string hash = hash_crc32(std::string(full_block.data(), block_size));
+
+    // Кэшируем результат
+    handle.block_cache[block_index] = hash;
+    return hash;
 }
 
-bool Hash::parse_string_block_hash_and_check(boost::filesystem::path& file_path, const std::unordered_map<uintmax_t, std::string>& reference_hashes){
-    std::ifstream ifs(file_path.string(), std::ios::binary);
-\
-    if (!ifs.is_open()) {
+bool Hash::compare_handles_from_block(FileHandle& handle1, FileHandle& handle2,
+                                     size_t start_block) {
+    // Проверяем размеры
+    if (handle1.size != handle2.size) {
         return false;
     }
 
-    uintmax_t block_index = 0;
+    // Вычисляем количество блоков
+    size_t total_blocks = (handle1.size + block_size - 1) / block_size;
 
-    while (!ifs.eof()) {
-        std::vector<char> buffer(block_size);
-        ifs.read(buffer.data(), block_size);
-        std::streamsize bytes_read = ifs.gcount();
-        if (bytes_read == 0) {
-            break;
-        }
-        std::string block_data(buffer.begin(), buffer.begin() + bytes_read);
-        std::string current_hash = hash_block(block_data);
+    // Сравниваем блок за блоком, начиная с start_block
+    for (size_t block_idx = start_block; block_idx < total_blocks; block_idx++) {
+        std::string hash1 = get_block_hash(handle1, block_idx);
+        std::string hash2 = get_block_hash(handle2, block_idx);
 
-        auto it = reference_hashes.find(block_index);
-        if (it == reference_hashes.end()) {
-            ifs.close();
+        if (hash1.empty() || hash2.empty()) {
+            // Один из файлов закончился раньше
             return false;
         }
-        if (it->second != current_hash) {
-            ifs.close();
+
+        if (hash1 != hash2) {
+            // Блоки разные - файлы разные
             return false;
         }
-        block_index++;
     }
-    ifs.close();
-    if (block_index != reference_hashes.size()) {
-        return false;
-    }
+
     return true;
 }
 
+std::vector<std::vector<boost::filesystem::path>>
+Hash::find_real_duplicates(std::vector<std::vector<boost::filesystem::path>> size_groups) {
+    std::vector<std::vector<boost::filesystem::path>> result;
 
-std::vector<std::vector<boost::filesystem::path>> Hash::hash_directories(std::vector<std::vector<boost::filesystem::path>> duplicate_groups){
-    std::vector<std::vector<boost::filesystem::path>> RESULTTTTTTTT;
-    for (auto& group : duplicate_groups) {
-        if (group.size() < 2) {
-            continue;
+    for (const auto& group : size_groups) {
+        if (group.size() < 2) continue;
+
+        // Создаем хэндлы для всех файлов
+        std::vector<FileHandle> handles;
+        handles.reserve(group.size());
+
+        for (const auto& path : group) {
+            handles.emplace_back(path);
         }
 
-        boost::filesystem::path reference_file = group[0];
-        auto reference_hashes = parse_reference_block_hash(reference_file);
+        // Вектор для отслеживания уже обработанных файлов
+        std::vector<bool> processed(handles.size(), false);
 
-        //группа для настоящих дубликатов
-        std::vector<boost::filesystem::path> duplicate_group;
-        duplicate_group.push_back(reference_file);  //эталон с нулевой добавляется
-
-        for (size_t i = 1; i < group.size(); i++) {
-            if (parse_string_block_hash_and_check(group[i], reference_hashes)) {
-                duplicate_group.push_back(group[i]);    //настоящий дубликат
+        // Проходим по всем файлам и ищем дубликаты для каждого
+        for (size_t i = 0; i < handles.size(); ++i) {
+            if (processed[i] || !handles[i].is_valid()) {
+                continue;
             }
-        }
 
-        if (duplicate_group.size() > 1) {
-            RESULTTTTTTTT.push_back(duplicate_group);
+            // Группа дубликатов для текущего файла
+            std::vector<boost::filesystem::path> duplicate_group;
+            duplicate_group.push_back(group[i]);
+
+            // Ищем дубликаты среди оставшихся файлов
+            for (size_t j = i + 1; j < handles.size(); ++j) {
+                if (processed[j] || !handles[j].is_valid()) {
+                    continue;
+                }
+
+                // Сравниваем два файла
+                if (compare_handles_from_block(handles[i], handles[j], 0)) {
+                    duplicate_group.push_back(group[j]);
+                    processed[j] = true;  // Помечаем как обработанный
+                }
+            }
+
+            // Если нашли дубликаты (больше одного файла в группе)
+            if (duplicate_group.size() > 1) {
+                result.push_back(std::move(duplicate_group));
+            }
+
+            processed[i] = true;
         }
     }
 
-    return RESULTTTTTTTT;
+    return result;
 }

@@ -298,6 +298,9 @@ bayan_SOURCE_DIR:STATIC=/Users/pasha/CLionProjects/sem3_lab7_c--
 //The directory containing a CMake configuration file for boost_atomic.
 boost_atomic_DIR:PATH=/opt/homebrew/lib/cmake/boost_atomic-1.89.0
 
+//The directory containing a CMake configuration file for boost_crc.
+boost_crc_DIR:PATH=boost_crc_DIR-NOTFOUND
+
 //The directory containing a CMake configuration file for boost_filesystem.
 boost_filesystem_DIR:PATH=/opt/homebrew/lib/cmake/boost_filesystem-1.89.0
 

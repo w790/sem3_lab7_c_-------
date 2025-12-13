@@ -3,17 +3,41 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <memory>
+#include <fstream>
 
 class Hash {
 private:
     size_t block_size;
-    std::string hash_block(const std::string &str_lenght_s);
 
-    std::unordered_map<uintmax_t, std::string> parse_reference_block_hash(boost::filesystem::path& file_path);
+    // Структура для хранения открытого файла и его кэша
+    struct FileHandle {
+        std::unique_ptr<std::ifstream> stream;
+        uintmax_t size;
+        std::unordered_map<size_t, std::string> block_cache;
+        boost::filesystem::path path;
 
-    bool parse_string_block_hash_and_check(boost::filesystem::path& file_path, const std::unordered_map<uintmax_t, std::string>& reference_hashes);
+        FileHandle(const boost::filesystem::path& file_path);
+        bool is_valid() const { return stream && stream->is_open(); }
+    };
 
+    // Хеш-функция CRC32
+    std::string hash_crc32(const std::string &data);
 
+    // Получить хеш блока (с автоматическим кэшированием)
+    std::string get_block_hash(FileHandle& handle, size_t block_index);
+
+    // Сравнить два файла начиная с определенного блока
+    bool compare_handles_from_block(FileHandle& handle1, FileHandle& handle2,
+                                   size_t start_block);
+
+public:
+    Hash(size_t block_size);
+
+    // Основной метод - находит настоящие дубликаты
+    std::vector<std::vector<boost::filesystem::path>>
+    find_real_duplicates(std::vector<std::vector<boost::filesystem::path>> size_groups);
+};
 //Все а дальше уже будет другой класс как раз принимать в конструкторе std::vector<списков>
 //и работать с ним бежать по вектору по индексам брать первый список и первый элемент.
 //списке полностью его хэшировать блоками и дальше идти к
@@ -41,7 +65,30 @@ private:
 // эта функция должна вернуть True или False совпадает ли parse_file_block_hash с parse_Эталон_block_hash
 
 // так логика немножка поменялась std::unordered_map<uintmax_t, std::string> parse_string_block_hash(boost::filesystem::path& file_path,size_t block_size); и bool hash_checking(const std::unordered_map<uintmax_t, std::string> map, std::unordered_map<uintmax_t, std::string> reference); объединены
-public:
-    Hash(size_t block_size);
-    std::vector<std::vector<boost::filesystem::path>> hash_directories(std::vector<std::vector<boost::filesystem::path>>);
-};
+
+
+// Ты делаешь:
+//1. parse_reference_block_hash() → читает ВЕСЬ эталонный файл сразу
+//2. parse_string_block_hash_and_check() → читает ВЕСЬ текущий файл сразу
+
+//Файлы одинакового размера: [F1, F2, F3, F4, F5]
+
+//Алгоритм:
+//1. Берем F1 - ничего не делаем (нет с чем сравнивать)
+//2. Берем F2: сравниваем F1 и F2 блок за блоком
+//   - Если одинаковые → они в одной группе [F1, F2]
+//   - Если разные → F2 начинает новую группу [F2]
+//3. Берем F3: сравниваем с каждой существующей группой:
+//   - Сначала с группой [F1, F2]: сравниваем с F1 (представителем группы)
+//     * Если совпал → добавляем в группу [F1, F2, F3]
+//     * Если не совпал → пробуем следующую группу
+//   - Или с группой [F2] и т.д.
+//4. Повторяем для всех файлов
+
+
+
+//Я реализовал алгоритм, который сначала группирует файлы по размеру,
+//а затем внутри каждой размерной группы выполняет полное попарное сравнение по содержимому.
+//Файлы с одинаковым содержимым объединяются в группы.
+//Сравнение происходит блок за блоком с кэшированием хешей,
+// что гарантирует, что каждый блок каждого файла читается с диска не более одного раза.

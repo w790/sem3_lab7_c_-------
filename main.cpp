@@ -5,20 +5,10 @@
 #include "ScannerDirectory.h"
 #include "Hash.h"
 
-//$ bayan [...]
-//--include или -i - директории для сканирования
-//--exclude или -e - директории для исключения
-//--level или -l - уровень сканирования
-//--min-size или -m - минимальный размер файла
-//--mask - маски файлов
-//--block-size или -S - размер блока (S)
-//--hash или -H алгоритм хеширования (crc32/md5)//буду юзать только crc32
-
 namespace po = boost::program_options;
 
-int main(int argc, char* argv[]){
-    // Для скалярных значений - используйте переменные
-    // Для списков - извлекайте через vm
+int main(int argc, char* argv[]) {
+    // Параметры
     int level = 0;
     size_t min_size = 1;
     size_t block_size = 1024;
@@ -28,95 +18,113 @@ int main(int argc, char* argv[]){
     std::vector<std::string> exclude_dirs;
     std::vector<std::string> masks;
 
-    po::options_description desc("General options");
+    // Настройка парсера командной строки
+    po::options_description desc("Опции программы");
     desc.add_options()
-        ("include,i", po::value<std::vector<std::string>>(&include_dirs)->multitoken(), "директории для сканирования")//po::value<T>() - создает хранилище для значения типа T
-        ("exclude,e", po::value<std::vector<std::string>>(&exclude_dirs)->multitoken(), "директории для исключения")//нет указателя на переменную значение нужно извлекать через vm["exclude"]
-        ("level,l", po::value<int>(&level)->default_value(0), "уровень сканирования")//default_value(x) - значение по умолчанию
-        ("min-size,m", po::value<size_t>(&min_size)->default_value(1), "минимальный размер файла")
-        ("mask", po::value<std::vector<std::string>>(&masks)->multitoken(), "маски файлов")//multitoken() - параметр может принимать несколько значений
-        ("block-size,S", po::value<size_t>(&block_size)->default_value(1024), "размер блока (S)")
-        ("hash,H", po::value<std::string>(&hash_algo)->default_value("crc32"), "алгоритм хеширования crc32");
+        ("include,i", po::value<std::vector<std::string>>(&include_dirs)->multitoken(),
+         "директории для сканирования (можно несколько)")
+        ("exclude,e", po::value<std::vector<std::string>>(&exclude_dirs)->multitoken(),
+         "директории для исключения (можно несколько)")
+        ("level,l", po::value<int>(&level)->default_value(0),
+         "уровень сканирования (0 - только указанная директория)")
+        ("min-size,m", po::value<size_t>(&min_size)->default_value(1),
+         "минимальный размер файла в байтах")
+        ("mask", po::value<std::vector<std::string>>(&masks)->multitoken(),
+         "маски файлов (например, *.txt)")
+        ("block-size,S", po::value<size_t>(&block_size)->default_value(1024),
+         "размер блока для чтения файлов")
+        ("hash,H", po::value<std::string>(&hash_algo)->default_value("crc32"),
+         "алгоритм хеширования (crc32)")
+        ("help,h", "показать справку");
 
-    po::variables_map storage;//контейнер для хранения распарсенных значений
+    po::variables_map vm;
 
-    // Парсим
-    po::store(po::parse_command_line(argc, argv, desc), storage);
-    po::notify(storage);
+    try {
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);
 
-    // Отладочный вывод
-    std::cout << "Параметры сканирования" << std::endl;
+        if (vm.count("help")) {
+            std::cout << desc << std::endl;
+            return 0;
+        }
+
+        // Проверка обязательных параметров
+        if (include_dirs.empty()) {
+            std::cerr << "Ошибка: не указаны директории для сканирования" << std::endl;
+            std::cout << desc << std::endl;
+            return 1;
+        }
+
+    } catch (const po::error& e) {
+        std::cerr << "Ошибка парсинга параметров: " << e.what() << std::endl;
+        std::cout << desc << std::endl;
+        return 1;
+    }
+
+    // Вывод параметров (для отладки, можно убрать)
+    std::cout << "=== Параметры сканирования ===" << std::endl;
     std::cout << "Директории для сканирования: ";
-    for (const auto& dir : include_dirs){
-         std::cout << dir << " ";
-    }
-
+    for (const auto& dir : include_dirs) std::cout << dir << " ";
     std::cout << std::endl;
 
-    std::cout << "Исключенные директории: ";
-    for (const auto& dir : exclude_dirs){
-        std::cout << dir << " ";
+    if (!exclude_dirs.empty()) {
+        std::cout << "Исключенные директории: ";
+        for (const auto& dir : exclude_dirs) std::cout << dir << " ";
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
 
-    std::cout << "Маски: ";
-    for (const auto& mask : masks){
-        std::cout << mask << " ";
+    if (!masks.empty()) {
+        std::cout << "Маски файлов: ";
+        for (const auto& mask : masks) std::cout << mask << " ";
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
 
-    std::cout << "Уровень: " << level << std::endl;
-    std::cout << "Мин. размер: " << min_size << " байт" << std::endl;
+    std::cout << "Уровень сканирования: " << level << std::endl;
+    std::cout << "Мин. размер файла: " << min_size << " байт" << std::endl;
     std::cout << "Размер блока: " << block_size << " байт" << std::endl;
     std::cout << "Алгоритм хеширования: " << hash_algo << std::endl;
+    std::cout << "=============================" << std::endl;
 
-    //создаем сканер
+    // Создаем сканер и сканируем директории
     ScannerDirectory scanner(level, min_size, masks, exclude_dirs);
-
-    // Сканируем
     auto files = scanner.scan_directories(include_dirs);
 
-    // Выводим результат
-    std::cout << "\nРезультаты сканирования " << std::endl;
-    std::cout << "Найдено файлов: " << files.size() << std::endl;
-    for (const auto& file : files) {
-        std::cout << "  - " << file.string() << std::endl;
+    if (files.empty()) {
+        std::cout << "Файлы не найдены" << std::endl;
+        return 0;
     }
 
-    //теперь выведем с сортировкой по размеру
-    std::vector<std::vector<boost::filesystem::path>> duplicate_groups = scanner.get_duplicate_groups_by_size(files);
+    // Группируем файлы по размеру
+    auto duplicate_groups = scanner.get_duplicate_groups_by_size(files);
 
-    std::cout << "\nРезультаты сканирования с группировкой по размеру" << std::endl;
-    std::cout << "Найдено файлов: " << files.size() << std::endl;
-    for (const auto& duplicate_group : duplicate_groups) {
-        for (const auto& file : duplicate_group) {
-            std::cout << "  - " << file << std::endl;;
-        }
+    if (duplicate_groups.empty()) {
+        std::cout << "Файлы одинакового размера не найдены" << std::endl;
+        return 0;
     }
 
-
-    // Проверяем хеши файлов
-    std::cout << "\n=== Проверка хешей файлов ===" << std::endl;
-
-    // Создаем объект Hash с указанным размером блока
+    // Проверяем хеши файлов на совпадение
     Hash hash_checker(block_size);
+    auto final_duplicate_groups = hash_checker.find_real_duplicates(duplicate_groups);
 
-    // Проверяем группы файлов на настоящие дубликаты
-    auto final_duplicate_groups = hash_checker.hash_directories(duplicate_groups);
-
-    std::cout << "\n=== Окончательные результаты (с проверкой хешей) ===" << std::endl;
-    std::cout << "Найдено групп настоящих дубликатов: " << final_duplicate_groups.size() << std::endl;
-
+    // Выводим результат в требуемом формате
     if (final_duplicate_groups.empty()) {
         std::cout << "Дубликаты не найдены" << std::endl;
-    } else {
-        int group_number = 1;
-        for (const auto& group : final_duplicate_groups) {
-            std::cout << "\nГруппа " << group_number++ << " (" << group.size() << " файлов):" << std::endl;
-            for (size_t i = 0; i < group.size(); ++i) {
-                std::cout << "  " << (i + 1) << ". " << group[i].string()
-                          << " (" << boost::filesystem::file_size(group[i]) << " байт)" << std::endl;
-            }
+        return 0;
+    }
+
+    std::cout << "\n=== Найдены дубликаты ===" << std::endl;
+
+    // Формат вывода по заданию: один файл на строку, группы разделены пустой строкой
+    for (size_t i = 0; i < final_duplicate_groups.size(); ++i) {
+        const auto& group = final_duplicate_groups[i];
+
+        for (const auto& file_path : group) {
+            std::cout << file_path.string() << std::endl;
+        }
+
+        // Пустая строка между группами (но не после последней)
+        if (i != final_duplicate_groups.size() - 1) {
+            std::cout << std::endl;
         }
     }
 

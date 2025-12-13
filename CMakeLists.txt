@@ -31,7 +31,7 @@ if(APPLE)
         set(BOOST_LIBRARYDIR "${BOOST_PATH}/lib")
     endif()
 
-    find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc)
+    find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem)
 
 elseif(WIN32)
     # Для Windows
@@ -42,7 +42,7 @@ elseif(WIN32)
         set(CMAKE_TOOLCHAIN_FILE $ENV{CMAKE_TOOLCHAIN_FILE})
     endif()
 
-    find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem crc)
+    find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options filesystem OPTIONAL_COMPONENTS crc)
 
 else()
     # Для Linux
